@@ -1,0 +1,163 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<groupId>jp.seraphyware.launch4j</groupId>
+	<artifactId>launch4jhead</artifactId>
+	<version>0.0.1-SNAPSHOT</version>
+
+	<properties>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<maven.compiler.source>1.8</maven.compiler.source>
+		<maven.compiler.target>1.8</maven.compiler.target>
+		<mainClass>jp.seraphyware.launch4jexam.MainFrame</mainClass>
+	</properties>
+
+	<pluginRepositories>
+		<pluginRepository>
+			<id>bintray-seraphy-maven</id>
+			<name>bintray-plugins</name>
+			<url>https://dl.bintray.com/seraphy/maven</url>
+		</pluginRepository>
+	</pluginRepositories>
+
+	<dependencies>
+		<!-- https://mvnrepository.com/artifact/org.nuiton.thirdparty/JRI -->
+		<dependency>
+			<groupId>org.nuiton.thirdparty</groupId>
+			<artifactId>JRI</artifactId>
+			<version>0.9-9</version>
+		</dependency>
+	</dependencies>
+
+	<build>
+		<plugins>
+			<plugin>
+				<!-- コンパイラープラグイン -->
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<version>3.1</version>
+				<configuration>
+					<source>${maven.compiler.source}</source>
+					<target>${maven.compiler.target}</target>
+					<compilerArgument>-Xlint:all</compilerArgument>
+				</configuration>
+			</plugin>
+			<plugin>
+				<!-- 実行可能jar本体のパッケージを行う (package時) -->
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-jar-plugin</artifactId>
+				<version>2.6</version>
+				<configuration>
+					<finalName>${project.artifactId}</finalName>
+					<archive>
+						<manifest>
+							<!-- 依存ライブラリ/lib/*.jarをクラスパスに追加する -->
+							<addClasspath>true</addClasspath>
+							<classpathPrefix>lib/</classpathPrefix>
+							<mainClass>${mainClass}</mainClass>
+							<addDefaultImplementationEntries>true</addDefaultImplementationEntries>
+							<addDefaultSpecificationEntries>true</addDefaultSpecificationEntries>
+						</manifest>
+					</archive>
+				</configuration>
+			</plugin>
+			<plugin>
+				<!-- 依存ライブラリをターゲットのlibフォルダ下にコピーする(package時) -->
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-dependency-plugin</artifactId>
+				<version>2.10</version>
+				<executions>
+					<execution>
+						<id>copyLibs</id>
+						<phase>package</phase>
+						<goals>
+							<goal>copy-dependencies</goal>
+						</goals>
+						<configuration>
+							<outputDirectory>
+								${project.build.directory}/lib
+							</outputDirectory>
+							<includeScope>runtime</includeScope>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+
+			<plugin>
+				<!-- リソースコピープラグイン -->
+				<artifactId>maven-resources-plugin</artifactId>
+				<version>2.7</version>
+				<executions>
+					<execution>
+						<id>copy-ini-resources</id>
+						<phase>package</phase>
+						<goals>
+							<goal>copy-resources</goal>
+						</goals>
+						<configuration>
+							<outputDirectory>${basedir}/target</outputDirectory>
+							<resources>
+								<resource>
+									<directory>src/main/resources</directory>
+									<includes>
+										<include>*.l4j.ini</include>
+									</includes>
+									<filtering>false</filtering>
+								</resource>
+							</resources>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+
+			<plugin>
+				<!-- Launch4jによるjarファイルのexe化を行う. http://launch4j.sourceforge.net/docs.html -->
+				<groupId>jp.seraphyware.maven.plugins.launch4j</groupId>
+				<artifactId>launch4j-maven-plugin</artifactId>
+				<version>1.7.24.1</version>
+				<executions>
+					<execution>
+						<id>l4j-gui</id>
+						<phase>package</phase>
+						<goals>
+							<goal>launch4j</goal>
+						</goals>
+						<configuration>
+							<headerType>gui</headerType>
+							<outfile>target/${project.artifactId}.exe</outfile>
+							<jar>target/${project.artifactId}.jar</jar>
+							<errTitle>Failed to execute the ${project.artifactId}</errTitle>
+							<objs>
+								<obj>src/Launch4JStub/w32api/crt2.o</obj>
+								<obj>src/Launch4JStub/head/head.o</obj>
+								<obj>src/Launch4JStub/head/guihead.o</obj>
+							</objs>
+							<libs>
+								<lib>src/Launch4jStub/w32api/libmingw32.a</lib>
+								<lib>src/Launch4jStub/w32api/libgcc.a</lib>
+								<lib>src/Launch4jStub/w32api/libmsvcrt.a</lib>
+								<lib>src/Launch4jStub/w32api/libkernel32.a</lib>
+								<lib>src/Launch4jStub/w32api/libuser32.a</lib>
+								<lib>src/Launch4jStub/w32api/libadvapi32.a</lib>
+								<lib>src/Launch4jStub/w32api/libshell32.a</lib>
+							</libs>
+							<vars>
+								<var>XXXX=XX;%FIND_ANCESTOR:Java%;YYY</var>
+								<var>ZZZZ_DIR=%EXEDIR%\ZZZZ</var>
+								<var>PATH=%ZZZZ_DIR%;%PATH%</var>
+							</vars>
+							<cmdLine></cmdLine>
+							<jre>
+								<path>jre</path>
+								<minVersion>1.8.0_40</minVersion>
+								<initialHeapSize>64</initialHeapSize>
+								<maxHeapSize>64</maxHeapSize>
+							</jre>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+		</plugins>
+	</build>
+</project>

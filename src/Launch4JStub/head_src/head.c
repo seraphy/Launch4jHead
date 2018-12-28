@@ -678,13 +678,16 @@ BOOL checkJavaExe(char *path)
 
 BOOL chooseJavaHome(char *path)
 {
+	// フォルダ選択ダイアログに表示するメッセージはエラーメッセージを借用する 
+	createJreSearchError();
+
 	BROWSEINFO bInfo = { 0 };
 	bInfo.hwndOwner = NULL;
 	bInfo.pidlRoot  = NULL;
 	bInfo.pszDisplayName = path;
-	bInfo.lpszTitle = "Select JAVA HOME Directory";
+	bInfo.lpszTitle = error.msg;
 	bInfo.ulFlags   = BIF_RETURNONLYFSDIRS | BIF_NEWDIALOGSTYLE;
-	
+
 	LPITEMIDLIST result = NULL;
 	while (!checkJavaExe(path))
 	{

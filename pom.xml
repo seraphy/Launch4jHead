@@ -4,7 +4,22 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>jp.seraphyware.launch4j</groupId>
 	<artifactId>launch4jhead</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
+	<version>0.0.1.0</version>
+
+	<developers>
+		<developer>
+			<id>seraphy</id>
+			<name>seraphy</name>
+			<email>seraphy@users.osdn.me</email>
+			<url>https://github.com/seraphy/</url>
+			<organization>seraphyware</organization>
+			<roles>
+				<role>architect</role>
+				<role>developer</role>
+			</roles>
+			<timezone>Asia/Tokyo</timezone>
+		</developer>
+	</developers>
 
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -128,6 +143,8 @@
 							<outfile>target/${project.artifactId}.exe</outfile>
 							<jar>target/${project.artifactId}.jar</jar>
 							<errTitle>Failed to execute the ${project.artifactId}</errTitle>
+							<downloadUrl>https://adoptopenjdk.net/</downloadUrl>
+							<supportUrl>https://github.com/seraphy/Launch4jHead</supportUrl>
 							<objs>
 								<obj>src/Launch4JStub/w32api/crt2.o</obj>
 								<obj>src/Launch4JStub/head/head.o</obj>
@@ -151,10 +168,22 @@
 							<cmdLine></cmdLine>
 							<jre>
 								<path>jre</path>
-								<minVersion>1.8.0_40</minVersion>
+								<minVersion>1.8.0_60</minVersion>
+								<maxVersion>1.8.9</maxVersion>
 								<initialHeapSize>64</initialHeapSize>
 								<maxHeapSize>64</maxHeapSize>
 							</jre>
+							<versionInfo>
+								<fileVersion>${project.version}</fileVersion>
+								<txtFileVersion>${project.version}</txtFileVersion>
+								<fileDescription>${project.artifactId} ${project.version}</fileDescription>
+								<copyright><![CDATA[${maven.build.timestamp} ${project.developers[0].id}]]></copyright>
+								<productVersion>${project.version}</productVersion>
+								<txtProductVersion>${project.version}</txtProductVersion>
+								<productName>${project.artifactId}</productName>
+								<internalName>${project.artifactId}</internalName>
+								<originalFilename>${project.artifactId}.exe</originalFilename>
+							</versionInfo>
 						</configuration>
 					</execution>
 				</executions>

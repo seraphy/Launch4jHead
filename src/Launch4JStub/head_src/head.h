@@ -53,6 +53,7 @@
 #include <sys/stat.h>
 #include <io.h>
 #include <process.h>
+#include <locale.h>
 
 #define LAUNCH4j "Launch4j"
 #define VERSION "3.12"

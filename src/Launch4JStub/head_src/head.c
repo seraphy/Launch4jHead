@@ -666,6 +666,39 @@ BOOL findJavaHome(char* path, const int jdkPreference)
 	return FALSE;
 }
 
+BOOL checkJavaExe(char *path)
+{
+	char path2[MAX_PATH];
+	strcpy(path2, path);
+	strcat(path2, "\\bin\\java.exe");
+	
+	DWORD attr = GetFileAttributes(path2);
+	return attr != -1;
+}
+
+BOOL chooseJavaHome(char *path)
+{
+	BROWSEINFO bInfo = { 0 };
+	bInfo.hwndOwner = NULL;
+	bInfo.pidlRoot  = NULL;
+	bInfo.pszDisplayName = path;
+	bInfo.lpszTitle = "Select JAVA HOME Directory";
+	bInfo.ulFlags   = BIF_RETURNONLYFSDIRS | BIF_NEWDIALOGSTYLE;
+	
+	LPITEMIDLIST result = NULL;
+	while (!checkJavaExe(path))
+	{
+		result = SHBrowseForFolder(&bInfo);
+		if (result == NULL)
+		{
+			return FALSE;
+		}
+
+		SHGetPathFromIDList(result, path);
+	}
+	return TRUE;
+}
+
 /*
  * Extract the executable name, returns path length.
  */
@@ -676,6 +709,15 @@ int getExePath(char* exePath)
         return -1;
     }
 	return strrchr(exePath, '\\') - exePath;
+}
+
+/**
+ * exeへのフルパス(*.exe)を受け取り、*.cfgにしたパスを生成する 
+ */
+void getCfgPath(const char *exePath, char *cfgPath)
+{
+	strcpy(cfgPath, exePath);
+	strcpy(cfgPath + strlen(cfgPath) - 4, ".cfg");
 }
 
 void appendPath(char* basepath, const char* path)
@@ -759,7 +801,7 @@ void findAncestor(char* dst, const char *dir, const char* name)
 	{
         //debug("cFileName:\t%s\n", data.cFileName);
 
-		if (stricmp(data.cFileName, name) == 0) // 大小文字は区別しない 
+		if (strcasecmp(data.cFileName, name) == 0) // 大小文字は区別しない 
 		{
 			strcat(dst, parent);
 			strcat(dst, data.cFileName);
@@ -1000,6 +1042,36 @@ void setWorkingDirectory(const char *exePath, const int pathLen)
 	}
 }
 
+BOOL cfgJreSearch(const char *exePath, int pathLen)
+{
+	char tmpPath[MAX_PATH] = { 0 };
+
+	char cfgPath[MAX_PATH] = { 0 };
+	getCfgPath(exePath, cfgPath);
+
+	GetPrivateProfileString("Settings", "JAVA_HOME", "", tmpPath, MAX_PATH, cfgPath);
+	if (strlen(tmpPath) > 0)
+	{
+		char jrePath[MAX_ARGS] = {0};
+		expandVars(jrePath, tmpPath, exePath, pathLen);
+		debug("Config JRE:\t%s\n", jrePath);
+
+		if (checkJavaExe(jrePath))
+		{
+			strcpy(launcher.cmd, jrePath);
+		
+			if (isLauncherPathValid(launcher.cmd))
+			{
+	            search.foundJava = wow64 ? FOUND_BUNDLED | KEY_WOW64_64KEY : FOUND_BUNDLED;
+				strcpy(search.foundJavaHome, launcher.cmd);
+				return TRUE;
+			}
+		}
+	}
+
+	return FALSE;
+}
+
 BOOL bundledJreSearch(const char *exePath, const int pathLen)
 {
     debugAll("bundledJreSearch()\n");
@@ -1093,32 +1165,63 @@ BOOL jreSearch(const char *exePath, const int pathLen)
     debugAll("jreSearch()\n");
 	BOOL result = TRUE;
 
-	search.bundledJreAsFallback = loadBool(BUNDLED_JRE_AS_FALLBACK);
-	loadString(JAVA_MIN_VER, search.originalJavaMinVer);
-	formatJavaVersion(search.javaMinVer, search.originalJavaMinVer);
-	debug("Java min ver:\t%s\n", search.javaMinVer);
-	loadString(JAVA_MAX_VER, search.originalJavaMaxVer);
-    formatJavaVersion(search.javaMaxVer, search.originalJavaMaxVer);
-    debug("Java max ver:\t%s\n", search.javaMaxVer);
-
-	if (search.bundledJreAsFallback)
+	// *.cfgに前回選択のJAVA_HOMEが記録されていれば、それを優先する
+	// 記録されていないか、JAVA_HOMEとして妥当でなければバンドルまたはレジストリの検索を行う 
+	if (!cfgJreSearch(exePath, pathLen))
 	{
-		if (!installedJreSearch())
-		{
-			result = bundledJreSearch(exePath, pathLen);
-		}
-	}
-	else
-	{
-		if (!bundledJreSearch(exePath, pathLen))
-		{
-			result = installedJreSearch();
-		}
-	}
+		search.bundledJreAsFallback = loadBool(BUNDLED_JRE_AS_FALLBACK);
+		loadString(JAVA_MIN_VER, search.originalJavaMinVer);
+		formatJavaVersion(search.javaMinVer, search.originalJavaMinVer);
+		debug("Java min ver:\t%s\n", search.javaMinVer);
+		loadString(JAVA_MAX_VER, search.originalJavaMaxVer);
+	    formatJavaVersion(search.javaMaxVer, search.originalJavaMaxVer);
+	    debug("Java max ver:\t%s\n", search.javaMaxVer);
 	
-	if (!result)
-	{
-		createJreSearchError();
+		if (search.bundledJreAsFallback)
+		{
+			if (!installedJreSearch())
+			{
+				result = bundledJreSearch(exePath, pathLen);
+			}
+		}
+		else
+		{
+			if (!bundledJreSearch(exePath, pathLen))
+			{
+				result = installedJreSearch();
+			}
+		}
+		
+		if (!result)
+		{
+			// バンドルの検索とレジストリの検索も失敗した場合
+			// ユーザーにJAVA_HOMEの選択を求める 
+			char jrePath[MAX_PATH] = { 0 };
+			if (chooseJavaHome(jrePath))
+			{
+				// JAVA_HOMEを選択した場合 
+		        search.foundJava = wow64 ? FOUND_BUNDLED | KEY_WOW64_64KEY : FOUND_BUNDLED;
+				strcpy(launcher.cmd, jrePath);
+				strcpy(search.foundJavaHome, launcher.cmd);
+				
+				// 成功とみなす 
+				result = TRUE;
+			}
+			else
+			{
+				// エラー表示の準備 
+				createJreSearchError();
+			}
+		}
+		
+		if (result)
+		{
+			// バンドルまたはレジストリからの検索に成功したJAVA_HOME、
+			// およびユーザーが選択したJAVA_HOMEは、*.cfgに保存する
+			char cfgPath[MAX_PATH] = { 0 };
+			getCfgPath(exePath, cfgPath);
+			WritePrivateProfileString("Settings", "JAVA_HOME", search.foundJavaHome, cfgPath);
+		}
 	}
 
 	return result;
@@ -1161,6 +1264,8 @@ BOOL appendJreBinToPathVar()
 void setEnvironmentVariables(const char *exePath, const int pathLen)
 {
 	char tmp[MAX_ARGS] = {0};
+
+	// リソースに埋め込まれている環境変数の展開 
 	char envVars[MAX_VAR_SIZE] = {0};
 	loadString(ENV_VARIABLES, envVars);
 	char *var = strtok(envVars, "\t");
@@ -1174,6 +1279,28 @@ void setEnvironmentVariables(const char *exePath, const int pathLen)
 		debug("Set var:\t%s = %s\n", var, tmp);
 		SetEnvironmentVariable(var, tmp);
 		var = strtok(NULL, "\t"); 
+	}
+	
+	// *.cfgファイルから環境変数の読み取り 
+	char cfgPath[MAX_PATH];
+	getCfgPath(exePath, cfgPath);
+	debug("cfgPath: %s\n", cfgPath);
+	
+	char envbuf[32 * 1024] = { 0 }; // 32kbytes
+	char envValue[32 * 1024] = { 0 };
+	GetPrivateProfileString("Environments", NULL, "", envbuf, sizeof(envbuf), cfgPath);
+
+	char *pEnv = envbuf;
+	while (*pEnv)
+	{
+		GetPrivateProfileString("Environments", pEnv, "", envValue, sizeof(envValue), cfgPath);
+		
+		*tmp = 0;
+		expandVars(tmp, envValue, exePath, pathLen);
+		debug("Set var:\t%s = %s\n", var, tmp);
+		SetEnvironmentVariable(pEnv, tmp);
+
+		while (*pEnv++);
 	}
 }
 
@@ -1390,8 +1517,6 @@ BOOL execute(const BOOL wait, DWORD *dwExitCode)
 	strcat(cmdline, launcher.cmd);
 	strcat(cmdline, "\" ");
 	strcat(cmdline, launcher.args);
-
-	SetEnvironmentVariable("RRRR_HOME", "********DUMMY**********");
 
 	if (CreateProcess(NULL, cmdline, NULL, NULL,
 			TRUE, processPriority, NULL, NULL, &si, &processInformation))

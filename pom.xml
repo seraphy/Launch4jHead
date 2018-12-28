@@ -141,6 +141,7 @@
 								<lib>src/Launch4jStub/w32api/libuser32.a</lib>
 								<lib>src/Launch4jStub/w32api/libadvapi32.a</lib>
 								<lib>src/Launch4jStub/w32api/libshell32.a</lib>
+								<lib>src/Launch4jStub/w32api/libshfolder.a</lib>
 							</libs>
 							<vars>
 								<var>XXXX=XX;%FIND_ANCESTOR:Java%;YYY</var>

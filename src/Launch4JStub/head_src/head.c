@@ -1213,15 +1213,6 @@ BOOL jreSearch(const char *exePath, const int pathLen)
 				createJreSearchError();
 			}
 		}
-		
-		if (result)
-		{
-			// バンドルまたはレジストリからの検索に成功したJAVA_HOME、
-			// およびユーザーが選択したJAVA_HOMEは、*.cfgに保存する
-			char cfgPath[MAX_PATH] = { 0 };
-			getCfgPath(exePath, cfgPath);
-			WritePrivateProfileString("Settings", "JAVA_HOME", search.foundJavaHome, cfgPath);
-		}
 	}
 
 	return result;
@@ -1286,8 +1277,8 @@ void setEnvironmentVariables(const char *exePath, const int pathLen)
 	getCfgPath(exePath, cfgPath);
 	debug("cfgPath: %s\n", cfgPath);
 	
-	char envbuf[32 * 1024] = { 0 }; // 32kbytes
-	char envValue[32 * 1024] = { 0 };
+	char envbuf[MAX_VAR_SIZE] = { 0 }; // 32kbytes
+	char envValue[MAX_ARGS] = { 0 };
 	GetPrivateProfileString("Environments", NULL, "", envbuf, sizeof(envbuf), cfgPath);
 
 	char *pEnv = envbuf;
@@ -1297,7 +1288,7 @@ void setEnvironmentVariables(const char *exePath, const int pathLen)
 		
 		*tmp = 0;
 		expandVars(tmp, envValue, exePath, pathLen);
-		debug("Set var:\t%s = %s\n", var, tmp);
+		debug("Set var:\t%s = %s\n", pEnv, tmp);
 		SetEnvironmentVariable(pEnv, tmp);
 
 		while (*pEnv++);
@@ -1521,16 +1512,42 @@ BOOL execute(const BOOL wait, DWORD *dwExitCode)
 	if (CreateProcess(NULL, cmdline, NULL, NULL,
 			TRUE, processPriority, NULL, NULL, &si, &processInformation))
 	{
-		if (wait)
+		// プロセスが起動してすぐにエラーが落ちるかどうかを見極める 
+		WaitForInputIdle(processInformation.hProcess, 10000); // メッセージループのアイドルを待つ 
+		WaitForSingleObject(processInformation.hProcess, 3000); // 3秒まつ 
+		
+		// 現時点の終了コードを得る 
+		GetExitCodeProcess(processInformation.hProcess, dwExitCode);
+		debug("Java PreExitCode: %ld\n", *dwExitCode);
+		if (*dwExitCode == STILL_ACTIVE)
 		{
-			WaitForSingleObject(processInformation.hProcess, INFINITE);
-			GetExitCodeProcess(processInformation.hProcess, dwExitCode);
-			closeProcessHandles();
-		}
-		else
-		{
+			// まだ終了していなければ0を仮設定する 
 			*dwExitCode = 0;
 		}
+		
+		if (*dwExitCode == 0)
+		{
+			// 起動直後にエラーが発生しているのでなければ
+			// JAVA_HOMEは正しかったものとみなし、 
+			// バンドルまたはレジストリからの検索に成功したJAVA_HOME、
+			// またはユーザーが選択したJAVA_HOMEを、*.cfgに保存する
+			// (仮に書き込み禁止等で書き込めなくても特段問題はない) 
+			char exePath[MAX_PATH] = { 0 };
+			char cfgPath[MAX_PATH] = { 0 };
+			getExePath(exePath);
+			getCfgPath(exePath, cfgPath);
+			WritePrivateProfileString("Settings", "JAVA_HOME", search.foundJavaHome, cfgPath);
+		}
+
+		if (wait)
+		{
+			// 終了待ちが指定されていれば子プロセス終了を待機する 
+			WaitForSingleObject(processInformation.hProcess, INFINITE);
+			GetExitCodeProcess(processInformation.hProcess, dwExitCode);
+		}
+		
+		// 待機する必要がなくなったのならハンドルは破棄しておく 
+		closeProcessHandles();
 		
 		return TRUE;
 	}

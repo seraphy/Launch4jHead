@@ -28,14 +28,6 @@
 		<mainClass>jp.seraphyware.launch4jexam.MainFrame</mainClass>
 	</properties>
 
-	<pluginRepositories>
-		<pluginRepository>
-			<id>bintray-seraphy-maven</id>
-			<name>bintray-plugins</name>
-			<url>https://dl.bintray.com/seraphy/maven</url>
-		</pluginRepository>
-	</pluginRepositories>
-
 	<dependencies>
 		<!-- https://mvnrepository.com/artifact/org.nuiton.thirdparty/JRI -->
 		<dependency>
@@ -128,9 +120,9 @@
 
 			<plugin>
 				<!-- Launch4jによるjarファイルのexe化を行う. http://launch4j.sourceforge.net/docs.html -->
-				<groupId>jp.seraphyware.maven.plugins.launch4j</groupId>
+				<groupId>com.akathist.maven.plugins.launch4j</groupId>
 				<artifactId>launch4j-maven-plugin</artifactId>
-				<version>1.7.24.1</version>
+				<version>1.7.25</version>
 				<executions>
 					<execution>
 						<id>l4j-gui</id>

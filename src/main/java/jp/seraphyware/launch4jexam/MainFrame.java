@@ -27,6 +27,7 @@ import javax.swing.table.TableColumnModel;
 
 public class MainFrame extends JFrame {
 
+
 	public MainFrame() {
 		try {
 			setTitle(getClass().getCanonicalName());
@@ -131,6 +132,9 @@ public class MainFrame extends JFrame {
 			table.setAutoCreateRowSorter(true);
 			table.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
 			model.adjustColumns(table);
+
+			// フォントサイズで行の高さを設定する
+			table.setRowHeight(table.getFont().getSize());
 		}
 
 		public void setKeyValueMap(Map<String, String> map) {
@@ -149,8 +153,9 @@ public class MainFrame extends JFrame {
 		propPanel = new TitledKeyValuePanel("System Properties");
 		envPanel = new TitledKeyValuePanel("Environments");
 
-		propPanel.setPreferredSize(new Dimension(400, 200));
-		envPanel.setPreferredSize(new Dimension(400, 200));
+		ScaleSupport scaleSupport = ScaleSupport.getInstance(this);
+		propPanel.setPreferredSize(scaleSupport.manualScaled(new Dimension(400, 200)));
+		envPanel.setPreferredSize(scaleSupport.manualScaled(new Dimension(400, 200)));
 
 		JSplitPane splitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT, propPanel, envPanel);
 		splitPane.setDividerLocation(0.5);

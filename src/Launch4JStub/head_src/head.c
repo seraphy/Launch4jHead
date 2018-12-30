@@ -734,9 +734,8 @@ void appendPath(char* basepath, const char* path)
 
 void appendLauncher(char* jrePath)
 {
-    if (console || hLog)
+    if (console)
 	{
-		// コンソール指定、もしくはデバッグ(--l4j-debug )がある場合はコンソール有りにする 
 	    appendPath(jrePath, "bin\\java.exe");
     }
 	else
@@ -1539,7 +1538,12 @@ BOOL execute(const BOOL wait, DWORD *dwExitCode)
 			char cfgPath[MAX_PATH] = { 0 };
 			getExePath(exePath);
 			getCfgPath(exePath, cfgPath);
-			WritePrivateProfileString("Settings", "JAVA_HOME", search.foundJavaHome, cfgPath);
+			int saveJavaHome = GetPrivateProfileInt("Settings", "SaveJavaHome", 1, cfgPath);
+			if (saveJavaHome)
+			{
+				// JAVA_HOMEの保存フラグが0でなければ使用したJAVA_HOMEを記録する 
+				WritePrivateProfileString("Settings", "JAVA_HOME", search.foundJavaHome, cfgPath);
+			}
 		}
 
 		if (wait)

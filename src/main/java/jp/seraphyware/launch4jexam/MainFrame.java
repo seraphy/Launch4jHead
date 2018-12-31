@@ -7,6 +7,7 @@ import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -134,13 +135,17 @@ public class MainFrame extends JFrame {
 			model.adjustColumns(table);
 
 			// フォントサイズで行の高さを設定する
-			table.setRowHeight(table.getFont().getSize());
+			table.setRowHeight((int)(table.getFont().getSize() * 1.2));
 		}
 
 		public void setKeyValueMap(Map<String, String> map) {
 			model.setKeyValueMap(map);
 		}
 	}
+
+	private ScaleSupport scaleSupport;
+
+	private TitledKeyValuePanel scalePanel;
 
 	private TitledKeyValuePanel propPanel;
 
@@ -150,24 +155,42 @@ public class MainFrame extends JFrame {
 		Container container = getContentPane();
 		container.setLayout(new BorderLayout());
 
+		scalePanel = new TitledKeyValuePanel("ScreenScale");
 		propPanel = new TitledKeyValuePanel("System Properties");
 		envPanel = new TitledKeyValuePanel("Environments");
 
-		ScaleSupport scaleSupport = ScaleSupport.getInstance(this);
+		scaleSupport = ScaleSupport.getInstance(this);
+		scalePanel.setPreferredSize(scaleSupport.manualScaled(new Dimension(400, 150)));
 		propPanel.setPreferredSize(scaleSupport.manualScaled(new Dimension(400, 200)));
 		envPanel.setPreferredSize(scaleSupport.manualScaled(new Dimension(400, 200)));
 
-		JSplitPane splitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT, propPanel, envPanel);
-		splitPane.setDividerLocation(0.5);
+		JSplitPane splitPane1 = new JSplitPane(JSplitPane.VERTICAL_SPLIT, scalePanel, propPanel);
+		JSplitPane splitPane2 = new JSplitPane(JSplitPane.VERTICAL_SPLIT, splitPane1, envPanel);
+		splitPane1.setDividerLocation(0.5);
+		splitPane2.setDividerLocation(0.7);
 
-		container.add(splitPane, BorderLayout.CENTER);
+		container.add(splitPane2, BorderLayout.CENTER);
 
 		pack();
 	}
 
 	public void load() {
+		loadScale();
 		loadSysProps();
 		loadEnv();
+	}
+
+	public void loadScale() {
+		Map<String, String> scaleMap = new LinkedHashMap<>();
+		scaleMap.put("Java Version", Double.toString(JavaVersionUtils.getJavaVersion()));
+		scaleMap.put("System Scale x", Double.toString(scaleSupport.getDefaultScaleX()));
+		scaleMap.put("System Scale y", Double.toString(scaleSupport.getDefaultScaleY()));
+		scaleMap.put("Retina", Boolean.toString(scaleSupport.isRetina()));
+		scaleMap.put("Calubrate Scale x", Double.toString(scaleSupport.getManualScaleX()));
+		scaleMap.put("Calubrate Scale y", Double.toString(scaleSupport.getManualScaleY()));
+		scaleMap.put("Resolution", Integer.toString(ScaleSupport.getScreenResolution()));
+		scaleMap.put("Compute Scale", Float.toString(ScaleSupport.getScreenScale()));
+		scalePanel.setKeyValueMap(scaleMap);
 	}
 
 	public void loadSysProps() {

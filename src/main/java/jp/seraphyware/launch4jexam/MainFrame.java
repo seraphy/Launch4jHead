@@ -5,6 +5,8 @@ import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.lang.management.ManagementFactory;
+import java.lang.management.RuntimeMXBean;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -28,9 +30,12 @@ import javax.swing.table.TableColumnModel;
 
 public class MainFrame extends JFrame {
 
+	private String[] args;
 
-	public MainFrame() {
+	public MainFrame(String[] args) {
 		try {
+			this.args = args;
+
 			setTitle(getClass().getCanonicalName());
 			addWindowListener(new WindowAdapter() {
 				@Override
@@ -145,6 +150,8 @@ public class MainFrame extends JFrame {
 
 	private ScaleSupport scaleSupport;
 
+	private TitledKeyValuePanel argsPanel;
+
 	private TitledKeyValuePanel scalePanel;
 
 	private TitledKeyValuePanel propPanel;
@@ -158,18 +165,23 @@ public class MainFrame extends JFrame {
 		scalePanel = new TitledKeyValuePanel("ScreenScale");
 		propPanel = new TitledKeyValuePanel("System Properties");
 		envPanel = new TitledKeyValuePanel("Environments");
+		argsPanel = new TitledKeyValuePanel("Command Line Arguments");
 
 		scaleSupport = ScaleSupport.getInstance(this);
+
+		argsPanel.setPreferredSize(scaleSupport.manualScaled(new Dimension(400, 150)));
 		scalePanel.setPreferredSize(scaleSupport.manualScaled(new Dimension(400, 150)));
 		propPanel.setPreferredSize(scaleSupport.manualScaled(new Dimension(400, 200)));
 		envPanel.setPreferredSize(scaleSupport.manualScaled(new Dimension(400, 200)));
 
 		JSplitPane splitPane1 = new JSplitPane(JSplitPane.VERTICAL_SPLIT, scalePanel, propPanel);
 		JSplitPane splitPane2 = new JSplitPane(JSplitPane.VERTICAL_SPLIT, splitPane1, envPanel);
+		JSplitPane splitPane3 = new JSplitPane(JSplitPane.VERTICAL_SPLIT, splitPane2, argsPanel);
 		splitPane1.setDividerLocation(0.5);
-		splitPane2.setDividerLocation(0.7);
+		splitPane2.setDividerLocation(0.66);
+		splitPane3.setDividerLocation(0.75);
 
-		container.add(splitPane2, BorderLayout.CENTER);
+		container.add(splitPane3, BorderLayout.CENTER);
 
 		pack();
 	}
@@ -178,6 +190,7 @@ public class MainFrame extends JFrame {
 		loadScale();
 		loadSysProps();
 		loadEnv();
+		loadArgs();
 	}
 
 	public void loadScale() {
@@ -208,6 +221,24 @@ public class MainFrame extends JFrame {
 		envPanel.setKeyValueMap(envMap);
 	}
 
+	public void loadArgs() {
+		Map<String, String> argsMap = new LinkedHashMap<>();
+		RuntimeMXBean runtimeMxBean = ManagementFactory.getRuntimeMXBean();
+		List<String> vmArgs = runtimeMxBean.getInputArguments();
+
+		int idx = 0;
+		for (String arg : vmArgs) {
+			argsMap.put("jvm" + Integer.toString(++idx), arg);
+		}
+
+		idx = 0;
+		for (String arg : args) {
+			argsMap.put("app" + Integer.toString(++idx), arg);
+		}
+
+		argsPanel.setKeyValueMap(argsMap);
+	}
+
 	protected void onClose() {
 		dispose();
 	}
@@ -215,7 +246,7 @@ public class MainFrame extends JFrame {
 	public static void main(String[] args) throws Exception {
 		UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
 		SwingUtilities.invokeLater(() -> {
-			MainFrame main = new MainFrame();
+			MainFrame main = new MainFrame(args);
 			main.setLocationByPlatform(true);
 			main.setVisible(true);
 		});

@@ -1553,7 +1553,7 @@ void setCommandLineArgs(const char *lpCmdLine,
 	// Constant command line arguments
 	if (loadString(CMD_LINE, tmp))
 	{
-		char tmp2[MAX_ARGS] = {0};
+		char tmp2[MAX_ARGS] = { 0 };
 		expandVars(tmp2, tmp, exePath, pathLen);
 		debug("constant commandline args: %s\r\n", tmp2);
 

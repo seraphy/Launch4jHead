@@ -153,17 +153,17 @@
 								<lib>src/Launch4jStub/w32api/libshfolder.a</lib>
 							</libs>
 							<vars>
-								<var>_FIND_JAVA=XX;%FIND_ANCESTOR:Java%;YYY</var>
-								<var>_WITH_JRE_ARCH=%FIND_ANCESTOR:launch4jhead%\src\%JRE_ARCH%</var>
+								<var>AAA_HOME=%FIND_ANCESTOR:launch4jhead%\native</var>
+								<var>PATH=%AAA_HOME%\bin;%AAA_HOME%\bin\%JRE_ARCH:i386,amd64%</var>
 							</vars>
-							<cmdLine></cmdLine>
+							<cmdLine>-Daaa.libraryDir=%FIND_ANCESTOR:launch4jhead%\native\bin\%JRE_ARCH:i386,amd64%</cmdLine>
 							<jre>
 								<path>jre</path>
 								<minVersion>1.8.0_60</minVersion>
 								<maxVersion>1.8.9</maxVersion>
 								<initialHeapSize>64</initialHeapSize>
 								<maxHeapSize>64</maxHeapSize>
-								<runtimeBits>64</runtimeBits>
+								<runtimeBits>64/32</runtimeBits>
 							</jre>
 							<versionInfo>
 								<fileVersion>${project.version}</fileVersion>

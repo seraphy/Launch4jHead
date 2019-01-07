@@ -156,13 +156,13 @@
 								<var>AAA_HOME=%FIND_ANCESTOR:launch4jhead%\native</var>
 								<var>PATH=%AAA_HOME%\bin;%AAA_HOME%\bin\%JRE_ARCH:i386,amd64%</var>
 							</vars>
-							<cmdLine>-Daaa.libraryDir=%FIND_ANCESTOR:launch4jhead%\native\bin\%JRE_ARCH:i386,amd64%</cmdLine>
+							<cmdLine>"%FIND_ANCESTOR:launch4jhead%\native\conf" "%JRE_ARCH%"</cmdLine>
 							<jre>
 								<path>jre</path>
-								<minVersion>1.8.0_60</minVersion>
+k								<minVersion>1.8.0_60</minVersion>
 								<maxVersion>1.8.9</maxVersion>
 								<initialHeapSize>64</initialHeapSize>
-								<maxHeapSize>64</maxHeapSize>
+								<maxHeapSize>72</maxHeapSize>
 								<runtimeBits>64/32</runtimeBits>
 							</jre>
 							<versionInfo>
@@ -176,6 +176,34 @@
 								<internalName>${project.artifactId}</internalName>
 								<originalFilename>${project.artifactId}.exe</originalFilename>
 							</versionInfo>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+
+			<plugin>
+				<!-- リソースコピープラグイン -->
+				<artifactId>maven-resources-plugin</artifactId>
+				<version>3.1.0</version>
+				<executions>
+					<execution>
+						<id>copy-ini-resources</id>
+						<phase>package</phase>
+						<goals>
+							<goal>copy-resources</goal>
+						</goals>
+						<configuration>
+							<outputDirectory>${basedir}/target</outputDirectory>
+							<resources>
+								<resource>
+									<directory>src/main/attachments</directory>
+									<includes>
+										<include>*.ini</include>
+										<include>*.cfg</include>
+									</includes>
+									<filtering>false</filtering>
+								</resource>
+							</resources>
 						</configuration>
 					</execution>
 				</executions>

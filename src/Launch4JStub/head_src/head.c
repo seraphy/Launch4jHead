@@ -1013,14 +1013,41 @@ void appendHeapSize(char *dst, const int megabytesID, const int percentID,
 	}
 }
 
-void setJvmOptions(char *jvmOptions, const char *exePath)
+void setJvmOptions(char *jvmOptions, const char *exePath, const int pathLen)
 {
+	// リソースに埋め込んだ固定のJVMオプション 
 	if (loadString(JVM_OPTIONS, jvmOptions))
 	{
 		strcat(jvmOptions, " ");
 	}
 
+	// *.cfgファイルからオプション引数の読み取り 
+	char cfgPath[MAX_PATH];
+	getCfgPath(exePath, cfgPath);
+	
+	char optbuf[MAX_VAR_SIZE] = { 0 }; // 32kbytes
+	char optValue[MAX_ARGS] = { 0 };
+	GetPrivateProfileString("JVM_OPTIONS", NULL, "", optbuf, sizeof(optbuf), cfgPath);
+
+	char *pOpt = optbuf;
+	char tmp[MAX_ARGS] = {0};
+	while (*pOpt)
+	{
+		GetPrivateProfileString("JVM_OPTIONS", pOpt, "", optValue, sizeof(optValue), cfgPath);
+		
+		*tmp = 0;
+		expandVars(tmp, optValue, exePath, pathLen);
+		debug("Set jvm_option:\t%s = %s\n", pOpt, tmp);
+
+		// 変数展開済みオプションを追記 
+		strcat(jvmOptions, tmp);
+		strcat(jvmOptions, " ");
+
+		while (*pOpt++);
+	}
+
 	/*
+	 * ini設定ファイル からのJVMオプション 
 	 * Load additional JVM options from .l4j.ini file
 	 * Options are separated by spaces or CRLF
 	 * # starts an inline comment
@@ -1029,13 +1056,17 @@ void setJvmOptions(char *jvmOptions, const char *exePath)
 
 	strncpy(iniFilePath, exePath, strlen(exePath) - 3);
 	strcat(iniFilePath, "l4j.ini");
+	debug("try loading 1:\t%s\n", iniFilePath);
 
 	long hFile;
 	if ((hFile = _open(iniFilePath, _O_RDONLY)) == -1)
 	{
 		// *.l4j.iniがなければ *.ini で試す 
+		memset(iniFilePath, 0, sizeof(iniFilePath));
 		strncpy(iniFilePath, exePath, strlen(exePath) - 3);
-		strcat(iniFilePath, ".ini");
+		strcat(iniFilePath, "ini");
+
+		debug("try loading 2:\t%s\n", iniFilePath);
 		hFile = _open(iniFilePath, _O_RDONLY);
 	}
 
@@ -1643,7 +1674,7 @@ int prepare(const char *lpCmdLine)
 	appendHeapSizes(launcher.args);
 
 	char jvmOptions[MAX_ARGS] = {0};
-	setJvmOptions(jvmOptions, exePath);
+	setJvmOptions(jvmOptions, exePath, pathLen);
 	expandVars(launcher.args, jvmOptions, exePath, pathLen);
 	setMainClassAndClassPath(exePath, pathLen);
 	setCommandLineArgs(lpCmdLine, exePath, pathLen);

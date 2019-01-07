@@ -233,7 +233,7 @@ public class MainFrame extends JFrame {
 
 		idx = 0;
 		for (String arg : args) {
-			argsMap.put("app" + Integer.toString(++idx), arg);
+			argsMap.put("arg" + Integer.toString(++idx), arg);
 		}
 
 		argsPanel.setKeyValueMap(argsMap);

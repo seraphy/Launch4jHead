@@ -254,6 +254,52 @@ int loadInt(const int resID)
 	return atoi(intStr);
 }
 
+typedef enum __PE6432
+{
+	PE_UNKNOWN, // x86, x64のいずれでもない (有効なPEのIA64, ARMなども該当する) 
+	PE_X86,
+	PE_X64
+} PE6432;
+
+/**
+ * 指定したPEファイル(EXE, DLL)の32/64ビットを判定する。 
+ * @param pFileName ファイルのパス
+ * @return 判定結果 
+ */
+PE6432 CheckPE6432(LPCTSTR pFileName)
+{
+	PE6432 result = PE_UNKNOWN;	
+	HANDLE fh = CreateFile(pFileName, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
+	if (fh != INVALID_HANDLE_VALUE) {
+		// DOSヘッダ読み取り 
+		IMAGE_DOS_HEADER imageDosHeader = { 0 };
+		DWORD rd = 0;
+		if (ReadFile(fh, &imageDosHeader, sizeof(IMAGE_DOS_HEADER), &rd, NULL) &&
+			rd == sizeof(IMAGE_DOS_HEADER) &&
+			imageDosHeader.e_magic == IMAGE_DOS_SIGNATURE) { // "MZ"
+			// NTヘッダ部まで移動 
+			SetFilePointer(fh, imageDosHeader.e_lfanew, NULL, FILE_BEGIN);
+			if (GetLastError() == NO_ERROR) {
+				// NTヘッダ読み取り 
+				IMAGE_NT_HEADERS imageNTHeader = { 0 };
+				if (ReadFile(fh, &imageNTHeader, sizeof(IMAGE_NT_HEADERS), &rd, NULL) &&
+					rd == sizeof(IMAGE_NT_HEADERS) &&
+					imageNTHeader.Signature == IMAGE_NT_SIGNATURE) {
+					// マシンタイプの判定 
+					if (imageNTHeader.FileHeader.Machine == IMAGE_FILE_MACHINE_I386) {
+						result = PE_X86;
+					} else if (imageNTHeader.FileHeader.Machine == IMAGE_FILE_MACHINE_AMD64) {
+						result = PE_X64;
+					}
+					// IA64, ARMなどはUNKNOWNにする 
+				}
+			}
+		}
+		CloseHandle(fh);
+	}
+	return result;
+}
+
 BOOL regQueryValue(const char* regPath, unsigned char* buffer,
 		unsigned long bufferLength)
 {
@@ -666,41 +712,6 @@ BOOL findJavaHome(char* path, const int jdkPreference)
 	return FALSE;
 }
 
-BOOL checkJavaExe(char *path)
-{
-	char path2[MAX_PATH];
-	strcpy(path2, path);
-	strcat(path2, "\\bin\\java.exe");
-	
-	DWORD attr = GetFileAttributes(path2);
-	return attr != -1;
-}
-
-BOOL chooseJavaHome(char *path)
-{
-	// フォルダ選択ダイアログに表示するメッセージはエラーメッセージを借用する 
-	createJreSearchError();
-
-	BROWSEINFO bInfo = { 0 };
-	bInfo.hwndOwner = NULL;
-	bInfo.pidlRoot  = NULL;
-	bInfo.pszDisplayName = path;
-	bInfo.lpszTitle = error.msg;
-	bInfo.ulFlags   = BIF_RETURNONLYFSDIRS | BIF_NEWDIALOGSTYLE;
-
-	LPITEMIDLIST result = NULL;
-	while (!checkJavaExe(path))
-	{
-		result = SHBrowseForFolder(&bInfo);
-		if (result == NULL)
-		{
-			return FALSE;
-		}
-
-		SHGetPathFromIDList(result, path);
-	}
-	return TRUE;
-}
 
 /*
  * Extract the executable name, returns path length.
@@ -723,12 +734,17 @@ void getCfgPath(const char *exePath, char *cfgPath)
 	strcpy(cfgPath + strlen(cfgPath) - 4, ".cfg");
 }
 
-void appendPath(char* basepath, const char* path)
+void appendPath(LPTSTR basepath, LPCTSTR path)
 {
-	if (basepath[strlen(basepath) - 1] != '\\')
+	LPCTSTR pLast = basepath;
+	while (*pLast++); // 末尾まで移動
+	pLast = CharPrev(basepath, pLast); // 一文字戻る (MBCS文字可) 
+
+	if (*pLast != '\\')
 	{
 		strcat(basepath, "\\");
 	}
+	
 	strcat(basepath, path);
 }
 
@@ -824,6 +840,58 @@ void findAncestor(char* dst, const char *dir, const char* name)
 	findAncestor(dst, parent, name);
 }
 
+/**
+ * javaの実行ファイルが64/32ビットのいずれであるかを示す 文字列を返す。
+ * 「変数名:X86名,X64名」のように、変数名後にコロンをつけて表示名を指定できる。
+ * x86, x64 の順にカンマで区切り、省略された場合は「x86」「x64」となる。 
+ * @param dst 変数展開先
+ * @param args 変数名の後に付与される引数。空でも良い。 
+ */
+void jreArch(char* dst, const char* args)
+{
+	char tempBuf[MAX_PATH] = { 0 };
+	LPCTSTR displayArchs[] =
+	{
+		"x86",
+		"x64"
+	};
+
+	if (*args == ':')
+	{
+		strcpy(tempBuf, args + 1);
+		displayArchs[0] = tempBuf; // x86用文字列 
+		int idx = 1;
+		char *p = tempBuf;
+		while (*p)
+		{
+			if (*p == ',')
+			{
+				*p = 0;
+				displayArchs[1] = p + 1; // カンマ区切りでx64用文字列 
+				break;
+			}
+			p = CharNext(p);
+		}
+	}
+	
+	char launcherPath[MAX_PATH] = { 0 };
+	strcpy(launcherPath, search.foundJavaHome);
+	appendLauncher(launcherPath);
+	
+	PE6432 peType = CheckPE6432(launcherPath);
+	
+	debug("PE Type: %s = %d\n", launcherPath, peType);
+	
+	if (peType == PE_X64)
+	{
+        strcat(dst, displayArchs[1]);
+	}
+	else if (peType == PE_X86)
+	{
+        strcat(dst, displayArchs[0]);
+	}
+}
+
 /* 
  * Expand environment %variables%
  */
@@ -854,6 +922,11 @@ BOOL expandVars(char *dst, const char *src, const char *exePath, const int pathL
 			{
 				char *findName = varName + 14;
 				findAncestor(dst, exePath, findName);
+            }
+            else if (strstr(varName, "JRE_ARCH") == varName)
+			{
+				char *findName = varName + 8;
+				jreArch(dst, findName);
             }
 			else if (strcmp(varName, "EXEDIR") == 0)
 			{
@@ -1044,6 +1117,49 @@ void setWorkingDirectory(const char *exePath, const int pathLen)
 	}
 }
 
+BOOL isValidCfgJrePath(LPCTSTR jrePath, PE6432 *pPEType)
+{
+	// java.exeへのパス 
+	char launcherPath[MAX_PATH] = { 0 };
+	strcpy(launcherPath, jrePath);
+	appendLauncher(launcherPath);
+
+	// 64/32bit判定
+	PE6432 peType = CheckPE6432(launcherPath);
+	if (pPEType)
+	{
+		*pPEType = peType;
+	}
+
+	if (peType != PE_UNKNOWN)
+	{
+		int runtimeBits = loadInt(RUNTIME_BITS);
+
+		switch (peType)
+		{
+			case PE_X86:
+				if (runtimeBits == USE_64_BIT_RUNTIME) {
+					// 64ビットを要求しているのにjava.exeが32ビットなので不可 
+					return FALSE;
+				}
+    		    search.foundJava = FOUND_BUNDLED;
+				break;
+				
+			case PE_X64:
+				if (!wow64 || runtimeBits == USE_32_BIT_RUNTIME) {
+					// 32ビットを要求しているのにjava.exeが64ビットなので不可 
+					// もしくは現在64ビットOSでないのにjava.exeが64ビットの場合 
+					// (本headは32ビットでビルドされるため、64ビットOSではwow64で実行される) 
+					return FALSE;
+				}
+	            search.foundJava = FOUND_BUNDLED | KEY_WOW64_64KEY;
+				break;
+		}
+		return TRUE;
+	}
+	return FALSE;
+}
+
 BOOL cfgJreSearch(const char *exePath, int pathLen)
 {
 	char tmpPath[MAX_PATH] = { 0 };
@@ -1057,21 +1173,58 @@ BOOL cfgJreSearch(const char *exePath, int pathLen)
 		char jrePath[MAX_ARGS] = {0};
 		expandVars(jrePath, tmpPath, exePath, pathLen);
 		debug("Config JRE:\t%s\n", jrePath);
-
-		if (checkJavaExe(jrePath))
+		
+		PE6432 peType = PE_UNKNOWN;
+		if (isValidCfgJrePath(jrePath, &peType))
 		{
 			strcpy(launcher.cmd, jrePath);
-		
-			if (isLauncherPathValid(launcher.cmd))
+			strcpy(search.foundJavaHome, launcher.cmd);
 			{
-	            search.foundJava = wow64 ? FOUND_BUNDLED | KEY_WOW64_64KEY : FOUND_BUNDLED;
-				strcpy(search.foundJavaHome, launcher.cmd);
-				return TRUE;
+				switch (peType)
+				{
+					case PE_X86:
+		    		    search.foundJava = FOUND_BUNDLED;
+						return TRUE;
+						
+					case PE_X64:
+			            search.foundJava = FOUND_BUNDLED | KEY_WOW64_64KEY;
+						return TRUE;
+				}
 			}
 		}
 	}
 
 	return FALSE;
+}
+
+BOOL chooseJavaHome(char *path, PE6432 *pPEType)
+{
+	// フォルダ選択ダイアログに表示するメッセージはエラーメッセージを借用する 
+	createJreSearchError();
+
+	BROWSEINFO bInfo = { 0 };
+	bInfo.hwndOwner = NULL;
+	bInfo.pidlRoot  = NULL;
+	bInfo.pszDisplayName = path;
+	bInfo.lpszTitle = error.msg;
+	bInfo.ulFlags   = BIF_RETURNONLYFSDIRS | BIF_NEWDIALOGSTYLE;
+
+	for (;;)
+	{
+		LPITEMIDLIST result = SHBrowseForFolder(&bInfo);
+		if (result == NULL)
+		{
+			// キャンセル 
+			return FALSE;
+		}
+
+		SHGetPathFromIDList(result, path);
+		
+		if (isValidCfgJrePath(path, pPEType))
+		{
+			return TRUE;
+		}
+	}
 }
 
 BOOL bundledJreSearch(const char *exePath, const int pathLen)
@@ -1199,10 +1352,20 @@ BOOL jreSearch(const char *exePath, const int pathLen)
 			// バンドルの検索とレジストリの検索も失敗した場合
 			// ユーザーにJAVA_HOMEの選択を求める 
 			char jrePath[MAX_PATH] = { 0 };
-			if (chooseJavaHome(jrePath))
+			PE6432 peType = PE_UNKNOWN;
+			if (chooseJavaHome(jrePath, &peType))
 			{
-				// JAVA_HOMEを選択した場合 
-		        search.foundJava = wow64 ? FOUND_BUNDLED | KEY_WOW64_64KEY : FOUND_BUNDLED;
+				// 有効なJAVA_HOMEを選択した場合 
+				switch (peType)
+				{
+					case PE_X86:
+				        search.foundJava = FOUND_BUNDLED;
+						break;
+
+					case PE_X64:
+				        search.foundJava = FOUND_BUNDLED | KEY_WOW64_64KEY;
+						break;
+				}
 				strcpy(launcher.cmd, jrePath);
 				strcpy(search.foundJavaHome, launcher.cmd);
 				

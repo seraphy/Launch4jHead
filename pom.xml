@@ -153,9 +153,8 @@
 								<lib>src/Launch4jStub/w32api/libshfolder.a</lib>
 							</libs>
 							<vars>
-								<var>XXXX=XX;%FIND_ANCESTOR:Java%;YYY</var>
-								<var>ZZZZ_DIR=%EXEDIR%\ZZZZ</var>
-								<var>PATH=%ZZZZ_DIR%;%PATH%</var>
+								<var>_FIND_JAVA=XX;%FIND_ANCESTOR:Java%;YYY</var>
+								<var>_WITH_JRE_ARCH=%FIND_ANCESTOR:launch4jhead%\src\%JRE_ARCH%</var>
 							</vars>
 							<cmdLine></cmdLine>
 							<jre>
@@ -164,6 +163,7 @@
 								<maxVersion>1.8.9</maxVersion>
 								<initialHeapSize>64</initialHeapSize>
 								<maxHeapSize>64</maxHeapSize>
+								<runtimeBits>64</runtimeBits>
 							</jre>
 							<versionInfo>
 								<fileVersion>${project.version}</fileVersion>

@@ -93,8 +93,9 @@
 
 			<plugin>
 				<!-- リソースコピープラグイン -->
+				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-resources-plugin</artifactId>
-				<version>2.7</version>
+				<version>3.1.0</version>
 				<executions>
 					<execution>
 						<id>copy-ini-resources</id>
@@ -106,9 +107,10 @@
 							<outputDirectory>${basedir}/target</outputDirectory>
 							<resources>
 								<resource>
-									<directory>src/main/resources</directory>
+									<directory>src/main/attachments</directory>
 									<includes>
-										<include>*.l4j.ini</include>
+										<include>*.ini</include>
+										<include>*.cfg</include>
 									</includes>
 									<filtering>false</filtering>
 								</resource>
@@ -164,6 +166,10 @@ k								<minVersion>1.8.0_60</minVersion>
 								<initialHeapSize>64</initialHeapSize>
 								<maxHeapSize>72</maxHeapSize>
 								<runtimeBits>64/32</runtimeBits>
+								<opts>
+									<opt>-Djava.library.path=%AAA_HOME%\bin;%AAA_HOME%\bin\%JRE_ARCH:i386,amd64%</opt>
+									<opt>-Daaa.bbb.conf=%FIND_ANCESTOR:launch4jhead%\native\conf</opt>
+								</opts>
 							</jre>
 							<versionInfo>
 								<fileVersion>${project.version}</fileVersion>
@@ -176,34 +182,6 @@ k								<minVersion>1.8.0_60</minVersion>
 								<internalName>${project.artifactId}</internalName>
 								<originalFilename>${project.artifactId}.exe</originalFilename>
 							</versionInfo>
-						</configuration>
-					</execution>
-				</executions>
-			</plugin>
-
-			<plugin>
-				<!-- リソースコピープラグイン -->
-				<artifactId>maven-resources-plugin</artifactId>
-				<version>3.1.0</version>
-				<executions>
-					<execution>
-						<id>copy-ini-resources</id>
-						<phase>package</phase>
-						<goals>
-							<goal>copy-resources</goal>
-						</goals>
-						<configuration>
-							<outputDirectory>${basedir}/target</outputDirectory>
-							<resources>
-								<resource>
-									<directory>src/main/attachments</directory>
-									<includes>
-										<include>*.ini</include>
-										<include>*.cfg</include>
-									</includes>
-									<filtering>false</filtering>
-								</resource>
-							</resources>
 						</configuration>
 					</execution>
 				</executions>

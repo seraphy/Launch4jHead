@@ -822,6 +822,42 @@ BOOL findAncestor(char* dst, const char *dir, const char* name)
 }
 
 /**
+ * 指定したディレクトリを親にさかのぼって、セミコロンで区切られた複数の
+ * ファイル・フォルダ名に一致するパスを検索してdstに追記する。
+ * 存在しない場合は何もしない。
+ * セミコロンで区切った名前は先頭のものから順番に評価され、
+ * 最初にみつかった時点で完了する。
+ * @param dst 発見されたパスを追記するバッファ
+ * @param dir 最初に指定するのはEXEへのフルパス(*.exe)を指定する。
+ * @param name 検索する名前(A\B\Cのようにフォルダ区切りがあっても良い) 
+ * @return 発見された場合はTRUE、発見されなかった場合はFALSE 
+ */
+BOOL multiFindAncestor(char* dst, const char *dir, const char* names)
+{
+	char name[MAX_PATH];
+	const char *p = names;
+	while (*p)
+	{
+		// セミコロンまたは末尾までの名前を取り出す 
+		char *d = name;
+		while (*p && *p != ';') *d++ = *p++;
+		*d = 0;
+		if (*p) p++; // セミコロンであれば1文字進める 
+
+		if (*name)
+		{
+			// 取り出した名前でfindAncestorを試行する 
+			if (findAncestor(dst, dir, name))
+			{
+				return TRUE;
+			}
+		}
+	}
+	// すべて見つからなかった場合 
+	return FALSE;
+}
+
+/**
  * javaの実行ファイルが64/32ビットのいずれであるかを示す 文字列を返す。
  * 「変数名:X86名,X64名」のように、変数名後にコロンをつけて表示名を指定できる。
  * x86, x64 の順にカンマで区切り、省略された場合は「x86」「x64」となる。 
@@ -903,6 +939,11 @@ BOOL expandVars(char *dst, const char *src, const char *exePath, const int pathL
 			{
 				char *findName = varName + 14;
 				findAncestor(dst, exePath, findName);
+            }
+            else if (strstr(varName, "MFIND_ANCESTOR:") == varName)
+			{
+				char *findNames = varName + 14;
+				multiFindAncestor(dst, exePath, findNames);
             }
             else if (strstr(varName, "JRE_ARCH") == varName)
 			{

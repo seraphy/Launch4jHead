@@ -771,9 +771,10 @@ void appendAppClasspath(char* dst, const char* src)
  * パスを検索してdstに追記する。存在しない場合は何もしない。
  * @param dst 発見されたパスを追記するバッファ
  * @param dir 最初に指定するのはEXEへのフルパス(*.exe)を指定する。
- * @param name 検索する名前 
+ * @param name 検索する名前(A\B\Cのようにフォルダ区切りがあっても良い) 
+ * @return 発見された場合はTRUE、発見されなかった場合はFALSE 
  */
-void findAncestor(char* dst, const char *dir, const char* name)
+BOOL findAncestor(char* dst, const char *dir, const char* name)
 {
 	//	親フォルダを検索 
 	char parent[MAX_PATH];
@@ -798,44 +799,24 @@ void findAncestor(char* dst, const char *dir, const char* name)
 	{
 		// 変化なしなので、すでに検索済みのはず 
 	    debug("Find End");
-		return;
+		return FALSE;
+	}
+
+	// フォルダ + name でフルパスを作成する 
+	char temp[MAX_PATH] = { 0 };
+	strcpy(temp, parent);
+	strcat(temp, name);
+
+	// ファイルまたはフォルダの実在チェック 
+	debug("check exist: %s\n", temp);
+	DWORD attr = GetFileAttributes(temp);
+	if (attr != -1) {
+		// パスが実在すればOK. 
+		strcat(dst, temp);
+	    debug("Found: %s\n", temp);
+		return TRUE;
 	}
     
-	// 親フォルダを列挙 
-	WIN32_FIND_DATA data = {0};
-	
-	char searchdir[MAX_PATH];
-    strcpy(searchdir, parent);
-    strcat(searchdir, "*.*");
-    debug("FindFirstFile:\t%s\n", searchdir);
-
-	HANDLE fh = FindFirstFile(searchdir, &data);
-	if (fh == INVALID_HANDLE_VALUE) {
-	    debug("FindFirstFile:\tErr=%d\n", GetLastError());
-		return;
-	}
-	
-	for (;;)
-	{
-        //debug("cFileName:\t%s\n", data.cFileName);
-
-		if (strcasecmp(data.cFileName, name) == 0) // 大小文字は区別しない 
-		{
-			strcat(dst, parent);
-			strcat(dst, data.cFileName);
-			return;
-		}
-		
-		if (!FindNextFile(fh, &data))
-		{
-			// ERROR_NO_MORE_FILES でエラー有無の判定は、 
-			// 結局、ループを打ち切るだけなので省略。 
-			break;
-		}
-	}
-	FindClose(fh);
-    debug("FindClose:\t%s\n", parent);
-
 	// 更に、この親を検索する 
 	findAncestor(dst, parent, name);
 }
@@ -1390,11 +1371,11 @@ BOOL jreSearch(const char *exePath, const int pathLen)
 				switch (peType)
 				{
 					case PE_X86:
-				        search.foundJava = FOUND_BUNDLED;
+				        search.foundJava = FOUND_CHOOSED;
 						break;
 
 					case PE_X64:
-				        search.foundJava = FOUND_BUNDLED | KEY_WOW64_64KEY;
+				        search.foundJava = FOUND_CHOOSED | KEY_WOW64_64KEY;
 						break;
 				}
 				strcpy(launcher.cmd, jrePath);
@@ -1708,35 +1689,40 @@ BOOL execute(const BOOL wait, DWORD *dwExitCode)
 	if (CreateProcess(NULL, cmdline, NULL, NULL,
 			TRUE, processPriority, NULL, NULL, &si, &processInformation))
 	{
-		// プロセスが起動してすぐにエラーが落ちるかどうかを見極める 
-		WaitForInputIdle(processInformation.hProcess, 10000); // メッセージループのアイドルを待つ 
-		WaitForSingleObject(processInformation.hProcess, 3000); // 3秒まつ 
-		
-		// 現時点の終了コードを得る 
-		GetExitCodeProcess(processInformation.hProcess, dwExitCode);
-		debug("Java PreExitCode: %ld\n", *dwExitCode);
-		if (*dwExitCode == STILL_ACTIVE)
+		if ((search.foundJava & FOUND_CHOOSED) != 0)
 		{
-			// まだ終了していなければ0を仮設定する 
-			*dwExitCode = 0;
-		}
-		
-		if (*dwExitCode == 0)
-		{
-			// 起動直後にエラーが発生しているのでなければ
-			// JAVA_HOMEは正しかったものとみなし、 
-			// バンドルまたはレジストリからの検索に成功したJAVA_HOME、
-			// またはユーザーが選択したJAVA_HOMEを、*.cfgに保存する
-			// (仮に書き込み禁止等で書き込めなくても特段問題はない) 
-			char exePath[MAX_PATH] = { 0 };
-			char cfgPath[MAX_PATH] = { 0 };
-			getExePath(exePath);
-			getCfgPath(exePath, cfgPath);
-			int saveJavaHome = GetPrivateProfileInt("Settings", "SaveJavaHome", 1, cfgPath);
-			if (saveJavaHome)
+			// ユーザーがJAVA_HOMEを選択して起動した場合は、 
+			// プロセスが起動してすぐにエラーが落ちるかどうかを見極める 
+			WaitForInputIdle(processInformation.hProcess, 10000); // メッセージループのアイドルを待つ 
+			WaitForSingleObject(processInformation.hProcess, 3000); // 3秒まつ 
+			
+			// 現時点の終了コードを得る 
+			GetExitCodeProcess(processInformation.hProcess, dwExitCode);
+			debug("Java PreExitCode: %ld\n", *dwExitCode);
+			if (*dwExitCode == STILL_ACTIVE)
 			{
-				// JAVA_HOMEの保存フラグが0でなければ使用したJAVA_HOMEを記録する 
-				WritePrivateProfileString("Settings", "JAVA_HOME", search.foundJavaHome, cfgPath);
+				// まだ終了していなければ0を仮設定する 
+				*dwExitCode = 0;
+			}
+			
+			if (*dwExitCode == 0)
+			{
+				// 起動直後にエラーが発生しているのでなければ
+				// JAVA_HOMEは正しかったものとみなし、 
+				// バンドルまたはレジストリからの検索に成功したJAVA_HOME、
+				// またはユーザーが選択したJAVA_HOMEを、*.cfgに保存する
+				// (仮に書き込み禁止等で書き込めなくても特段問題はない) 
+				char exePath[MAX_PATH] = { 0 };
+				char cfgPath[MAX_PATH] = { 0 };
+				getExePath(exePath);
+				getCfgPath(exePath, cfgPath);
+
+				int saveJavaHome = GetPrivateProfileInt("Settings", "SaveJavaHome", 1, cfgPath);
+				if (saveJavaHome)
+				{
+					// JAVA_HOMEの保存フラグが0でなければ使用したJAVA_HOMEを記録する 
+					WritePrivateProfileString("Settings", "JAVA_HOME", search.foundJavaHome, cfgPath);
+				}
 			}
 		}
 

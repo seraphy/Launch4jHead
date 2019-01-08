@@ -177,6 +177,11 @@ public class MainFrame extends JFrame {
 		JSplitPane splitPane1 = new JSplitPane(JSplitPane.VERTICAL_SPLIT, scalePanel, propPanel);
 		JSplitPane splitPane2 = new JSplitPane(JSplitPane.VERTICAL_SPLIT, splitPane1, envPanel);
 		JSplitPane splitPane3 = new JSplitPane(JSplitPane.VERTICAL_SPLIT, splitPane2, argsPanel);
+
+		splitPane1.setBorder(null);
+		splitPane2.setBorder(null);
+		splitPane3.setBorder(null);
+
 		splitPane1.setDividerLocation(0.5);
 		splitPane2.setDividerLocation(0.66);
 		splitPane3.setDividerLocation(0.75);

@@ -64,6 +64,7 @@
 #define FOUND_JRE 1
 #define FOUND_SDK 2
 #define FOUND_BUNDLED 4
+#define FOUND_CHOOSED 8
 
 #define JRE_ONLY 0
 #define PREFER_JRE 1

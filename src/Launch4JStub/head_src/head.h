@@ -95,7 +95,7 @@
 #define FALSE_STR "false"
 
 #define ERROR_FORMAT "Error:\t\t%s\n"
-#define debug(args...) if (hLog != NULL) fprintf(hLog, ## args);
+#define debug(args...) if (hLog != NULL) { fprintf(hLog, ## args); fflush(hLog); }
 #define debugAll(args...) if (debugAll && hLog != NULL) fprintf(hLog, ## args);
 
 typedef void (WINAPI *LPFN_ISWOW64PROCESS) (HANDLE, PBOOL);

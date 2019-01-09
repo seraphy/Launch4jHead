@@ -770,7 +770,7 @@ void appendAppClasspath(char* dst, const char* src)
  * 指定したディレクトリを親にさかのぼって指定したファイル・フォルダ名に一致する
  * パスを検索してdstに追記する。存在しない場合は何もしない。
  * @param dst 発見されたパスを追記するバッファ
- * @param dir 最初に指定するのはEXEへのフルパス(*.exe)を指定する。
+ * @param dir 末尾が\のディレクトリ、または最初に指定するのはEXEへのフルパス(*.exe)を指定する。
  * @param name 検索する名前(A\B\Cのようにフォルダ区切りがあっても良い) 
  * @return 発見された場合はTRUE、発見されなかった場合はFALSE 
  */
@@ -780,25 +780,39 @@ BOOL findAncestor(char* dst, const char *dir, const char* name)
 	char parent[MAX_PATH];
 	strcpy(parent, dir);
 	char *p = parent;
-	while (*p++);
-	
-	while (p > parent)
+	while (*p++); // 末尾に移動 
+
+	// UNC形式の場合(ネットワークパスの場合) 
+	// 最初のフォルダまでは固定にする。
+	// (ex.) \\ABC\DEF\XYZ の場合、\\ABC\DEF\ より遡らない 
+	char *top = parent;
+	if (*top == '\\' && *(top + 1) == '\\')
 	{
-		if (*p == '\\' || *p == '/')
+		top += 2;
+		while(*top && *top != '\\') top = CharNext(top);
+	}
+	
+	while (p > top)
+	{
+		if (*p == '\\' && *(p + 1))
 		{
-			if (*(p + 1))
-			{
-				// 現在の末尾のフォルダ区切り以外であれば、ここを末尾にする 
-				*(p + 1)  = 0;
-				break;	
-			}
+			// 現在の末尾のフォルダ区切り以外であれば、ここを末尾にする 
+			// C:\a\b\c.exe を開始した場合は、C:\a\b\ がマッチする。 
+	 		// C:\a\b\ で開始した場合は、C:\a\ がマッチする。
+			// C:\a\ で開始した場合は、C:\ がマッチする。 
+			// C:\ で開始した場合はマッチするものがないので終了する 
+			// UNC形式で \\ABC\DEF\XYZ.exe で開始した場合は\\ABC\DEF\ がマッチする 
+			// UNC形式で \\ABC\DEF\ で開始した場合は、\\ABC\DEF\より遡れないので終了する 
+			*(p + 1)  = 0;
+			break;	
 		}
 		p = CharPrev(parent, p);
 	}
+
 	if (strcmp(dir, parent) == 0)
 	{
 		// 変化なしなので、すでに検索済みのはず 
-	    debug("Find End");
+	    debug("Not Found\n");
 		return FALSE;
 	}
 
@@ -847,6 +861,7 @@ BOOL multiFindAncestor(char* dst, const char *dir, const char* names)
 		if (*name)
 		{
 			// 取り出した名前でfindAncestorを試行する 
+			debug("FIND_ANCESTOR: %s\n", name);
 			if (findAncestor(dst, dir, name))
 			{
 				return TRUE;

@@ -937,11 +937,6 @@ BOOL expandVars(char *dst, const char *src, const char *exePath, const int pathL
             
             if (strstr(varName, "FIND_ANCESTOR:") == varName)
 			{
-				char *findName = varName + 14;
-				findAncestor(dst, exePath, findName);
-            }
-            else if (strstr(varName, "MFIND_ANCESTOR:") == varName)
-			{
 				char *findNames = varName + 14;
 				multiFindAncestor(dst, exePath, findNames);
             }
